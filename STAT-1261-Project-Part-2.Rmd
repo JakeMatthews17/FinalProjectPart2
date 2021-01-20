@@ -1,0 +1,1672 @@
+---
+title: "STAT 1261 Final Project Part 2"
+author: "Jake Deemer"
+date: "11/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Team Members
+* Jake Deemer- Statistics
+* Nick Calvaresi- Statistics
+* Liam Flood- Information Science
+* Jake Matthews- Econ-Statistics
+
+## Topic of Choice
+Our topic of choice is topic 3: Quantitative Financial Analysis
+
+## Goals of Analysis
+* We will analyze the 30 stocks in the DOW Index, divided into groups by sector. There are 9 sectors among the 30 stocks in the DOW index. Each team member will analyze a different sector.
+* For each stock, we will transform our stock price data in order to analyze both the monthly and yearly returns. 
+* We will fit a regression model to our stock data for each sector in order to find the coefficient of the linear regression. This will allow us to determine the trend of each stock, which we can use to determine if the returns for each stock are increasing or decreasing over time. 
+
+## Packages Needed
+```{r message=FALSE, warning=FALSE}
+library(tidyquant)
+library(formattable)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(broom)
+library(modelr)
+library(purrr)
+```
+
+## Dow Index
+```{r}
+DJI_data<- tq_get(("^DJI"), get = "stock.prices", from = "2010-1-1")
+```
+We begin with a brief overview of the DOW index as a whole. 
+
+### Visualizing Price Data for DOW Index
+```{r}
+DJI_data%>%
+  ggplot(aes(date,close,color=symbol))+
+  geom_line()+
+  theme_tq()+
+  scale_color_tq()
+DJI_data
+```
+
+We see that the price data for the DOW Index has been steadily increasing, with a slight plataeu around 2016-2017 and then a sharp decline post-2020.
+
+### Monthly Returns for DOW Index
+
+```{r}
+DJI_monthly_returns<-DJI_data%>%
+  group_by(symbol)%>%
+  tq_transmute(select=adjusted,
+               mutate_fun = periodReturn,
+               period="monthly",
+               col_rename = "monthly_return")
+DJI_monthly_returns
+
+DJI_monthly_returns %>%
+  ggplot(aes(x = date, y = monthly_return, color = symbol)) +
+  geom_line(size = 1) +
+  labs(title = "Monthly Stock Returns",
+       x = "", y = "Returns", color = "") +
+  facet_wrap(~ symbol) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+We see returns that appear to have a mean of 0 and variance 1. The behavior appears fairly homoscedastic, with the variation increasing near late 2019-early 2020. 
+
+### Annual Returns for DOW Index
+
+```{r}
+DJI_yearly_returns<-DJI_data%>%
+  group_by(symbol)%>%
+  tq_transmute(select=adjusted,
+               mutate_fun = periodReturn,
+               period="yearly",
+               col_rename = "yearly_return")
+DJI_yearly_returns
+
+DJI_yearly_returns %>%
+  ggplot(aes(x = date, y = yearly_return, fill = symbol)) +
+  geom_col() +
+  geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Communication Services Sector: Annual Returns",
+       y = "Annual Returns", x = "") + 
+  facet_wrap(~ symbol, ncol = 2) +
+  theme_tq() + 
+  scale_fill_tq()
+```
+
+We can see that the DOW Index had positive returns nearly every year with the exception of 2016 and 2019. The highest returns appeared to come in 2014, followed closely by 2018.   
+
+
+We can now break down the DOW Index by sector and analyze the monthly and annual returns separately. There are 9 sectors in the DOW Index; Communication Services, Consumer Directory, Consumer Staples, Energy, Financials, Health Care, Industrials, Information Technology, and Materials. 
+
+## Communication Services Sector
+```{r}
+COMMS_data<-tq_get(c("DIS","VZ"), get="stock.prices", from="2010-1-1")
+```
+The companies included in the DOW index for the Communication Services sector are Disney ("Dis") and Verizon ("VZ"). We begin by retrieving the stock prices for each company, beginning on 1/1/2010 and continuing into 2020. 
+
+### Visualizing Price Data for Communication Services
+```{r}
+COMMS_data%>%
+  ggplot(aes(date,close,color=symbol))+
+  geom_line()+
+  theme_tq()+
+  scale_color_tq()
+COMMS_data
+```
+
+We can see from our plot that the prices for each company have risen since 2010. The first detail we can notice is the steep drop in price for both companies at the beginning of 2020, presumably because of the ongoing COVID-19 pandemic. We also notice that there is only one point, appearing to be around 2012-2013, where the closing price for Verizon was higher than the closing price for Disney. Additionally, we see that the closing price for Disney grew exponentially from this point until 2015, where it continued to grow at a decreased rate. The closing price for Verizon largely leveled off from around 2013-2014 onward. We also see an increase in variation for both companies during the period from 2015-2020. We see similar trends when we standardize our data. 
+
+```{r}
+COMMS_data%>%
+  group_by(symbol)%>%
+  mutate(close=100*close/first(close))%>%
+  ggplot(aes(date,close,color=symbol))+
+  geom_line()+
+  theme_tq() + 
+  scale_color_tq()
+```
+
+### Monthly Returns for Communication Services
+Next we will analyze the monthly returns for each stock. We begin by transforming our data so that we can visualize the monthly returns, and then create a plot so we can visualize our data. 
+```{r}
+COMMS_monthly_returns<-COMMS_data%>%
+  group_by(symbol)%>%
+  tq_transmute(select=adjusted,
+               mutate_fun = periodReturn,
+               period="monthly",
+               col_rename = "monthly_return")
+COMMS_monthly_returns
+
+COMMS_monthly_returns %>%
+  ggplot(aes(x = date, y = monthly_return, color = symbol)) +
+  geom_line(size = 1) +
+  labs(title = "Monthly Stock Returns",
+       x = "", y = "Returns", color = "") +
+  facet_wrap(~ symbol, ncol = 2) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+From this we can see that the monthly returns for Disney are much more volatile than the monthly returns for Verizon. The variance appears to be much larger for the Disney monthly returns, with returns reaching as high as 25% but also as low as -25%. It is interesting to note that the variance for the monthly returns for Disney appear to increase over time, as the spikes in both directions get larger and larger as time passes. The Verizon returns appear to maintain a large amount of homoscedasticity, maybe with a slight decrease in variance over time. We can also see from both graphs the drop in returns right at the beginning of 2020. 
+
+```{r warning=FALSE}
+COMMS_monthly_returns1<-COMMS_monthly_returns%>%
+  separate(date,c("Year","Month","Date"))
+COMMS_monthly_returns1$Date<-NULL
+COMMS_monthly_returns1$Year<-NULL
+COMMS_by_month<-COMMS_monthly_returns1%>%
+  group_by(symbol,Month)%>%
+  summarise_each(funs(mean))%>%
+  mutate(Gain=monthly_return>=0)
+ggplot(COMMS_by_month,aes(Month,monthly_return,fill=Gain))+
+  geom_col(position = "identity",colour="black",size=0.25)+
+  scale_fill_manual(values = c("red","green"),guide=FALSE)+
+  labs(title = "Stock Returns by Month",x="Month",y="Average Return",color="")+
+  facet_wrap(~symbol, ncol = 2)+
+  theme_tq()+
+  scale_color_tq()
+```
+
+We can also examine the average returns for each month for Disney and Verizon. The behavior we see is consistent to what we have been seeing in our other graphs. The monthly returns for Disney have much larger variation and have higher peaks and lower valleys than the Verizon data. The Verizon data stays much more consistent. Interestingly, we see that the return data is negative for both companies in the months January, May, and August, while Disney has an additional month (September), where their returns are also negative. This suggests that monthly returns may follow some sort of seasonal trend where certain months perform better than others. 
+
+### Annual Returns for Communication Services
+
+We will now examine the annual returns for the Communication Services sector. First we transform our data to get yearly returns and plot it. 
+```{r}
+COMMS_yearly_returns<-COMMS_data%>%
+  group_by(symbol)%>%
+  tq_transmute(select=adjusted,
+               mutate_fun = periodReturn,
+               period="yearly",
+               col_rename = "yearly_return")
+COMMS_yearly_returns
+
+COMMS_yearly_returns %>%
+  ggplot(aes(x = date, y = yearly_return, color = symbol)) +
+  geom_line(size = 1) +
+  labs(title = "Yearly Stock Returns",
+       x = "", y = "Returns", color = "") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+From this we see that the highest annual returns for Disney are much higher than the highest for Verizon. Disney had consistently higher returns from a little after 2012 to a little after 2016, and the two companies traded places over the next five years. Once again we see the post-2020 dip in the returns. We can further illustrate the annual returns with a bar graph. 
+
+```{r}
+COMMS_yearly_returns %>%
+  ggplot(aes(x = date, y = yearly_return, fill = symbol)) +
+  geom_col() +
+  geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Communication Services Sector: Annual Returns",
+       y = "Annual Returns", x = "") + 
+  facet_wrap(~ symbol, ncol = 2) +
+  theme_tq() + 
+  scale_fill_tq()
+```
+
+From the bar graph we see that the only time Disney returns dipped into the negative was 2020, and that the only time Verizon did was in 2015. We also see that Disney had three years where the yearly returns were above 30%, while Verizon had no such years. We next calculate the expected value and variance of the annual returns for each stock.
+
+```{r message=FALSE}
+COMMS_yearly_returns %>%
+  summarise(returns_avg=mean(yearly_return))
+
+COMMS_yearly_returns %>%
+    tq_performance(Ra = yearly_return,
+                   Rb = NULL,
+                   performance_fun = var)
+```
+
+Here we see that we can expect a slightly higher average yearly return from Disney than Verizon, but that Disney is also a riskier stock than Verizon because of it's increased variance. We can investigate further by getting the skewness of each stock.
+
+```{r}
+COMMS_yearly_returns %>%
+    tq_performance(Ra = yearly_return,
+                   Rb = NULL, 
+                   performance_fun = skewness)
+```
+
+We can see that the skewness for Disney indicates that it more often has large, positive annual returns, but also has small negative returns.Verizon on the other hand sees a smaller negative skewness, but this is very minor.
+
+### Regression to Examine the Trend of the Annual Returns
+
+Next we run a regression to find the trend of the annual return data, using the year as our predictor. First we transform our data by taking the log of the returns so that we can use it for our regression. Then we get the log annual returns for Disney and Verizon. We now can perform our regression, tidy our data, and get a model. Additionally, we can create a plot showing the trend line vs the log returns. 
+```{r}
+DIS<-tq_get(c("DIS"),from="2010-1-1")
+VZ<-tq_get(c("VZ"),from="2010-1-1")
+get_annual_log_returns <- function(stock.returns) {
+  stock.returns %>%
+    tq_transmute(select     = adjusted, 
+                 mutate_fun = periodReturn, 
+                 type       = "log", 
+                 period     = "yearly")
+}
+DIS_log_annual<-get_annual_log_returns(DIS)
+VZ_log_annual<-get_annual_log_returns(VZ)
+modDIS<-lm(yearly.returns~year(date),data=DIS_log_annual)
+modVZ<-lm(yearly.returns~year(date),data=VZ_log_annual)
+```
+
+```{r message=FALSE}
+tidy(modDIS)
+DIS_log_annual %>%
+  ggplot(aes(x = year(date), y = yearly.returns)) + 
+  geom_hline(yintercept = 0) +
+  geom_point(size = 2, color = "navyblue") +
+  geom_line(size = 1, color = "navyblue") + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Disney: Trend of Annual Returns",
+       x = "", y = "Annual Returns", color = "") +
+  theme_tq()
+```
+
+For Disney, as year increases one unit, the annual returns decrease by about 1.6%. We can see that this is not a significant result however, as the p-value is over the 0.05 level of significance. 
+
+```{r message=FALSE}
+tidy(modVZ)
+VZ_log_annual %>%
+  ggplot(aes(x = year(date), y=yearly.returns)) + 
+  geom_hline(yintercept = 0) +
+  geom_point(size = 2, color = "red2") +
+  geom_line(size = 1, color = "red2") + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Verizon: Trend of Annual Returns",
+       x = "", y = "Annual Returns", color = "") +
+  theme_tq()
+```
+
+The trend for Verizon is also sloping downwards, but it is a very small decrease at less than 1% per year. This result also has a high p-value.   
+
+For both stock returns, we see a downward trend.The trend for Disney annual returns appears to be decreasing slightly faster than that of Verizon (1.6% to less than 1%). It is noteworthy that neither trend appears to be significant, as each has a very high p-value. 
+
+## Energy Sector
+```{r}
+ENG_data<-tq_get(c("CVX"), get="stock.prices", from="2010-1-1")
+```
+There is only one company, Chevron Corporation, in the Energy sector in the DOW index. We get the stock price data beginning in 1/1/2010.
+
+### Visualizing Price Data for Energy
+```{r}
+ENG_data%>%
+  ggplot(aes(date,close,color=symbol))+
+  geom_line()+
+  theme_tq()+
+  scale_color_tq()
+ENG_data
+
+ENG_data%>%
+  group_by(symbol)%>%
+  mutate(close=100*close/first(close))
+```
+
+When we plot our price data, we see that the price is rising and falling over the course of what appears to be every five years. This may be some type of pattern, as the data seems to have a gradual rise followed by a much steeper fall. Again, we notice the steep drop shortly after 2020, and 2020 contains by far the lowest point on the graph. The price appeared to be slowly declining before hitting 2020, and it may have followed the same behavior it did five years prior and decreased more gradually had the COVID pandemic not occurred. We will also standardize our data, but that graph will not be shown. 
+
+### Monthly Returns for Energy
+
+We transform our data to monthly returns and plot the data. 
+```{r}
+ENG_monthly_returns<-ENG_data%>%
+  group_by(symbol)%>%
+  tq_transmute(select=adjusted,
+               mutate_fun = periodReturn,
+               period="monthly",
+               col_rename = "monthly_return")
+ENG_monthly_returns
+
+ENG_monthly_returns %>%
+  ggplot(aes(x = date, y = monthly_return, color = symbol)) +
+  geom_line(size = 1) +
+  labs(title = "Monthly Stock Returns",
+       x = "", y = "Returns", color = "") +
+  facet_wrap(~ symbol) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+We see that despite the disparity in price data, monthly returns were typically fairly constant. We see that they appear to have a mean of 0 and retain homoscedastic behavior up until 2020, when the returns are both the smallest and largest, reaching lower than -20% and higher than 25%. No other point comes close to those marks. 
+
+```{r warning=FALSE}
+ENG_monthly_returns1<-ENG_monthly_returns%>%
+  separate(date,c("Year","Month","Date"))
+ENG_monthly_returns1$Date<-NULL
+ENG_monthly_returns1$Year<-NULL
+ENG_by_month<-ENG_monthly_returns1%>%
+  group_by(symbol,Month)%>%
+  summarise_each(funs(mean))%>%
+  mutate(Gain=monthly_return>=0)
+ggplot(ENG_by_month,aes(Month,monthly_return,fill=Gain))+
+  geom_col(position = "identity",colour="black",size=0.25)+
+  scale_fill_manual(values = c("red","green"),guide=FALSE)+
+  labs(title = "Stock Returns by Month",x="Month",y="Average Return",color="")+
+  facet_wrap(~symbol)+
+  theme_tq()+
+  scale_color_tq()
+```
+
+From this we see that January is normally a very bad month for Chevron returns, however some of this may be due to the accelerated drop in 2020. May, August, and September are also in the negative. January, May, and August were also the same months that both the Verizon and Disney stock returns were in the red, with Disney also being negative in September. The largest returns were in April.  
+
+### Annual Returns for Energy
+```{r}
+ENG_yearly_returns<-ENG_data%>%
+  group_by(symbol)%>%
+  tq_transmute(select=adjusted,
+               mutate_fun = periodReturn,
+               period="yearly",
+               col_rename = "yearly_return")
+ENG_yearly_returns
+
+ENG_yearly_returns %>%
+  ggplot(aes(x = date, y = yearly_return, color = symbol)) +
+  geom_line(size = 1) +
+  labs(title = "Yearly Stock Returns",
+       x = "", y = "Returns", color = "") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+We see that annual returns remained fairly high until they took a dip from 2014-2015. They reached the top in 2017, but had gradually declined since then with the steeper dip coming post-2020. 
+
+```{r}
+ENG_yearly_returns %>%
+  ggplot(aes(x = date, y = yearly_return, fill = symbol)) +
+  geom_col() +
+  geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Energy Sector: Annual Returns",
+       y = "Annual Returns", x = "") + 
+  facet_wrap(~ symbol, ncol = 2) +
+  theme_tq() + 
+  scale_fill_tq()
+```
+
+We can easily see from the bar chart that over the 2010-2020 span, there were more years with positive returns than negative returns. Every year from 2010-2014 brought a positive return, but there is a 3-4 split between positive and negative returns over the next 7 years. 
+
+```{r message=FALSE}
+ENG_yearly_returns %>%
+  summarise(returns_avg=mean(yearly_return))
+
+ENG_yearly_returns %>%
+    tq_performance(Ra = yearly_return,
+                   Rb = NULL,
+                   performance_fun = var)
+```
+
+We can see that Chevron has a much smaller average annual return that Disney and Verizon, and also a larger variance, indicating that this is a stock that is both less rewarding and more volatile.
+
+```{r}
+ENG_yearly_returns %>%
+    tq_performance(Ra = yearly_return,
+                   Rb = NULL, 
+                   performance_fun = skewness)
+```
+
+Chevron has a small negative skewness, indicating that larger negative returns occur more often than larger positive returns, but smaller positive returns occur frequently. 
+
+### Regression to Examine the Trend of the Annual Returns
+
+We can now run a regression to find the trend of the annual return data. 
+
+```{r message=FALSE}
+CVX<-tq_get(c("CVX"),from="2010-1-1")
+CVX_log_annual<-get_annual_log_returns(CVX)
+modCVX<-lm(yearly.returns~year(date),data=CVX_log_annual)
+tidy(modCVX)
+CVX_log_annual %>%
+  ggplot(aes(x = year(date), y = yearly.returns)) + 
+  geom_hline(yintercept = 0) +
+  geom_point(size = 2, color = "navyblue") +
+  geom_line(size = 1, color = "navyblue") + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Chevron Corporation: Trend of Annual Returns",
+       x = "", y = "Annual Returns", color = "") +
+  theme_tq()
+```
+
+Predictably, we see a steeper downward trend for this stock. For every additional year, on average, the annual return decreases by 2.6%. However, this also has a higher p-value, which indicates that the result is not significant. 
+
+## Financials Sector
+
+```{r}
+FIN_data<-tq_get(c("GS","TRV","JPM","AXP"), get="stock.prices", from="2010-1-1")
+```
+
+The companies in the financials sector of the DOW index are American Express, Goldman Sachs Group Inc., JP Morgan Chase, and Travelers Companies Inc.. 
+
+### Visualizing Price Data for Financials
+
+```{r}
+FIN_data%>%
+  ggplot(aes(date,close,color=symbol))+
+  geom_line()+
+  theme_tq()+
+  scale_color_tq()
+FIN_data
+```
+
+We see that three of the companies, American Express, JP Morgan, and Travelers, began the decade with much lower closing prices than Goldman Sachs Group. All three of those companies appear to gradually increase until 2020, where we see the drop also seen by other companies. Goldman Sachs Group experiences an even bigger drop at 2020, and their price appears to have larger variability than the other three companies. 
+
+```{r}
+FIN_data%>%
+  group_by(symbol)%>%
+  mutate(close=100*close/first(close))%>%
+  ggplot(aes(date,close,color=symbol))+
+  geom_line()+
+  theme_tq() + 
+  scale_color_tq()
+```
+
+Because Goldman Sachs Group's closing price begins so much higher than the other three companies, we standardize our data in order to compare their behavior from 2010 onward. When we do this we see that the price of Goldman Sachs Group has not grown at nearly the same rate as the others. 
+
+### Monthly Returns for Financials
+
+```{r}
+FIN_monthly_returns<-FIN_data%>%
+  group_by(symbol)%>%
+  tq_transmute(select=adjusted,
+               mutate_fun = periodReturn,
+               period="monthly",
+               col_rename = "monthly_return")
+FIN_monthly_returns
+
+FIN_monthly_returns %>%
+  ggplot(aes(x = date, y = monthly_return, color = symbol)) +
+  geom_line(size = 1) +
+  labs(title = "Monthly Stock Returns",
+       x = "", y = "Returns", color = "") +
+  facet_wrap(~ symbol, ncol = 2) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+American Express, Goldman Sachs, and JP Morgan all appear to have more variability in the monthly returns than Travelers. JP Morgan and Goldman Sachs in particular have much greater variability at the beginning and end of the decade. We also see that Travelers has very few spikes in either direction. Specifically talking about negative returns, Travelers has no months that dropped below -20%, while the other three have at least one each. Further, Travelers only has three months below -10%, while the other three have at least seven each. This may make it one of the safer stocks to invest in.  
+
+```{r warning=FALSE}
+FIN_monthly_returns1<-FIN_monthly_returns%>%
+  separate(date,c("Year","Month","Date"))
+FIN_monthly_returns1$Date<-NULL
+FIN_monthly_returns1$Year<-NULL
+FIN_by_month<-FIN_monthly_returns1%>%
+  group_by(symbol,Month)%>%
+  summarise_each(funs(mean))%>%
+  mutate(Gain=monthly_return>=0)
+ggplot(FIN_by_month,aes(Month,monthly_return,fill=Gain))+
+  geom_col(position = "identity",colour="black",size=0.25)+
+  scale_fill_manual(values = c("red","green"),guide=FALSE)+
+  labs(title = "Stock Returns by Month",x="Month",y="Average Return",color="")+
+  facet_wrap(~symbol, ncol=2)+
+  theme_tq()+
+  scale_color_tq()
+```
+
+We see much different patterns here than either sector examined so far. January is only a negative month for American Express, although returns are close to zero for Travelers and JP Morgan for that month. We see that the returns for Travelers are positive every month except August, reinforcing the idea that this is a safer stock to invest in. Goldman Sachs Group sees 6/12 months have negative returns. Four of these are from March-June, perhaps indicating that that time period is more difficult for the company, as the late-fall and winter months all give positive returns. JP Morgan sees much higher returns in the last six months of the year than the first six months, while it is the opposite for American Express. American Express is also the only stock of this group to have a positive return in August. 
+
+### Annual Returns for Financials
+
+```{r}
+FIN_yearly_returns<-FIN_data%>%
+  group_by(symbol)%>%
+  tq_transmute(select=adjusted,
+               mutate_fun = periodReturn,
+               period="yearly",
+               col_rename = "yearly_return")
+FIN_yearly_returns
+
+FIN_yearly_returns %>%
+  ggplot(aes(x = date, y = yearly_return, color = symbol)) +
+  geom_line(size = 1) +
+  labs(title = "Yearly Stock Returns",
+       x = "", y = "Returns", color = "") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+Here we see again that the returns for Travelers appear to be much safer than the other three companies, with far less variability in it's annual returns.  We see that American Express had the highest annual return across any company at nearly 60% in 2014, while Goldman Sachs had the two lowest returns in 2012 and 2019. 
+
+```{r}
+FIN_yearly_returns %>%
+  ggplot(aes(x = date, y = yearly_return, fill = symbol)) +
+  geom_col() +
+  geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Financials Sector: Annual Returns",
+       y = "Annual Returns", x = "") + 
+  facet_wrap(~ symbol, ncol = 2) +
+  theme_tq() + 
+  scale_fill_tq()
+```
+
+Here we see again that Travelers had the least amount of variability among returns, with only one negative year in 2019. They are also the only company to not experience a negative return post-2020, instead having a return slightly above 0%. We see American Express have positive annual returns from 2010-2014, but have more negative returns than positive in the following six years. JP Morgan had all positive years from 2013-2018. Goldman Sachs accounted for the two worst years out of all companies in the financials sector but also had four years over 30% returns, more than both Travelers and American Express and the same amount as JP Morgan. 
+
+```{r message=FALSE}
+FIN_yearly_returns %>%
+  summarise(returns_avg=mean(yearly_return))
+
+FIN_yearly_returns %>%
+    tq_performance(Ra = yearly_return,
+                   Rb = NULL,
+                   performance_fun = var)
+```
+
+We can see that American Express, JP Morgan, and Travelers have very similar expected returns while Goldman Sachs group lags behind. Additionally, Goldman Sachs has the highest variance of this group, making it the least rewarding and riskiest stock in this sector. We can see again that Travelers has the lowest variance of the group. 
+
+```{r}
+FIN_yearly_returns %>%
+    tq_performance(Ra = yearly_return,
+                   Rb = NULL, 
+                   performance_fun = skewness)
+```
+
+We see that American Express is the only company with a positive skewness, indicating it is the only company to receive larger positive returns more often. Travelers is the most heavily skewed negatively, indicating larger losses but also smaller, more consistent gains. JP Morgan barely has any skewness at all, while Goldman Sachs is also skewed negatively.
+
+### Regression to Examine the Trend of the Annual Returns
+```{r}
+AXP<-tq_get(c("AXP"),from="2010-1-1")
+GS<-tq_get(c("GS"),from="2010-1-1")
+JPM<-tq_get(c("JPM"),from="2010-1-1")
+TRV<-tq_get(c("TRV"),from="2010-1-1")
+
+AXP_log_annual<-get_annual_log_returns(AXP)
+GS_log_annual<-get_annual_log_returns(GS)
+JPM_log_annual<-get_annual_log_returns(JPM)
+TRV_log_annual<-get_annual_log_returns(TRV)
+
+modAXP<-lm(yearly.returns~year(date),data=AXP_log_annual)
+modGS<-lm(yearly.returns~year(date),data=GS_log_annual)
+modJPM<-lm(yearly.returns~year(date),data=JPM_log_annual)
+modTRV<-lm(yearly.returns~year(date),data=TRV_log_annual)
+```
+
+```{r message=FALSE}
+tidy(modAXP)
+AXP_log_annual %>%
+  ggplot(aes(x = year(date), y = yearly.returns)) + 
+  geom_hline(yintercept = 0) +
+  geom_point(size = 2, color = "navyblue") +
+  geom_line(size = 1, color = "navyblue") + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "American Express: Trend of Annual Returns",
+       x = "", y = "Annual Returns", color = "") +
+  theme_tq()
+```
+
+For American Express, we see a very small negative trend. For each additional year, on average annual returns decrease less than 1%. This result has a very high p-value however, indicating it is not significant.  
+
+```{r message=FALSE}
+tidy(modGS)
+GS_log_annual %>%
+  ggplot(aes(x = year(date), y = yearly.returns)) + 
+  geom_hline(yintercept = 0) +
+  geom_point(size = 2, color = "red2") +
+  geom_line(size = 1, color = "red2") + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Goldman Sachs Group Inc.: Trend of Annual Returns",
+       x = "", y = "Annual Returns", color = "") +
+  theme_tq()
+```
+
+For Goldman Sachs Group, we see a positive trend, although this is a very small increase as well (again less than 1% change for each additional year). We see again that the trend is not significant. 
+
+```{r message=FALSE}
+tidy(modJPM)
+JPM_log_annual %>%
+  ggplot(aes(x = year(date), y = yearly.returns)) + 
+  geom_hline(yintercept = 0) +
+  geom_point(size = 2, color = "lightseagreen") +
+  geom_line(size = 1, color = "lightseagreen") + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "JP Morgan Chase: Trend of Annual Returns",
+       x = "", y = "Annual Returns", color = "") +
+  theme_tq()
+```
+
+We see another positive trend for JP Morgan. Like Goldman Sachs, this is less than 1% increase for each additional year, and it is not significant. 
+
+```{r message=FALSE}
+tidy(modTRV)
+TRV_log_annual %>%
+  ggplot(aes(x = year(date), y = yearly.returns)) + 
+  geom_hline(yintercept = 0) +
+  geom_point(size = 2, color = "navajowhite3") +
+  geom_line(size = 1, color = "navajowhite3") + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Travelers Companies Inc.: Trend of Annual Returns",
+       x = "", y = "Annual Returns", color = "") +
+  theme_tq()
+```
+
+We see that there is, on average, a decrease of about 1.5% with each additional year for Travelers. Although this has the lowest p-value of any company so far, it is still not significant.    
+
+This sector had two negative trends and two positive trends, none of which were higher than 2% in either direction. No trend for the annual returns appeared to be significant either. 
+
+## Consumer Directory Sector
+```{r}
+consumer_directory <- tq_get(c("HD","MCD","NKE"), get="stock.prices", from="2010-01-01")
+
+HD <- tq_get("HD", get = "stock.prices", from = "2010-01-01")
+MCD <- tq_get("MCD", get = "stock.prices", from = "2010-01-01")
+NKE <- tq_get("NKE", get = "stock.prices", from = "2010-01-01")
+HD
+```
+
+```{r}
+consumer_directory %>% 
+  ggplot(aes(date,close, color=symbol)) +
+  geom_line()+
+  theme_tq() +
+  scale_color_tq()
+
+```
+* Standardized
+
+
+```{r}
+consumer_directory %>% 
+  group_by(symbol) %>%
+  mutate(close = 100*close/first(close)) %>%
+  ggplot(aes(date,close, color=symbol)) +
+  geom_line()+
+  theme_tq() +
+  scale_color_tq()
+```
+
+```{r}
+### Gets the Monthly returns of Consumer Directory
+cons_dir_month <- consumer_directory %>%
+  group_by(symbol) %>%
+  tq_transmute(select=adjusted,
+               mutate_fun=periodReturn,
+               period="monthly",
+               col_rename = "monthly_return") 
+
+HD_Month <- HD %>%
+  tq_transmute(select=adjusted,
+                            mutate_fun=periodReturn,
+                            period="monthly",
+                            col_rename = "monthly_return")
+
+MCD_Month <- MCD %>%
+  tq_transmute(select=adjusted,
+               mutate_fun=periodReturn,
+               period="monthly",
+               col_rename = "monthly_return")
+
+NKE_Month <- NKE %>%
+  tq_transmute(select=adjusted,
+               mutate_fun=periodReturn,
+               period="monthly",
+               col_rename = "monthly_return")
+```
+
+```{r}
+### Time Series of the Monthly Returns
+cons_dir_month %>%
+  ggplot(aes(date, monthly_return, color=symbol)) +
+  geom_line() +
+  labs(title = "Monthly Stock Returns")+
+  facet_wrap(~symbol, ncol = 2) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+```{r}
+### Bar Plot of the Monthly Returns
+cons_dir_month1 <- cons_dir_month %>% 
+  separate(date, c("Year","Month","Day"))
+cons_dir_month1$Day <- NULL
+cons_dir_month1$Year <- NULL
+
+cons_dir_month2 <- cons_dir_month1 %>%
+  group_by(symbol, Month) %>%
+  summarise_each(funs(mean))%>%
+  mutate(Gain=monthly_return>=0) 
+
+ggplot(cons_dir_month2, aes(x = Month, y = monthly_return, fill = Gain)) +
+  geom_col(position = "identity", color = "black", size=.25) + 
+  scale_fill_manual(values = c("red","green"),guide=FALSE)+
+  labs(title = "Stock Returns by Month") +
+  facet_wrap(~symbol, ncol = 2) +
+  theme_tq()+
+  scale_color_tq()
+  
+```
+
+```{r}
+### Gets the Yearly returns of Consumer Directory
+cons_dir_year <- consumer_directory %>%
+  group_by(symbol) %>%
+  tq_transmute(select=adjusted,
+               mutate_fun=periodReturn,
+               period="yearly",
+               col_rename = "yearly_return") 
+```
+
+```{r}
+### Time Series of the Yearly Returns
+cons_dir_year %>%
+  ggplot(aes(date, yearly_return, color=symbol)) +
+  geom_line() +
+  labs(title = "Yearly Stock Returns",
+       x = "", y = "Returns", color = "") +
+  facet_wrap(~ symbol, ncol = 2) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+```{r}
+### Bar Plot of the Yearly Returns
+cons_dir_year %>% ggplot(aes(x = date, y = yearly_return, fill = symbol)) +
+  geom_col(stat = "identity") +
+   geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Consumer Directory Sector: Annual Returns",
+       y = "Annual Returns", x = "") + 
+  facet_wrap(~symbol, ncol = 2) +
+  theme_tq() + 
+  scale_fill_tq()
+```
+
+```{r}
+get_annual_returns <- function(stock.returns) {
+  stock.returns %>%
+    tq_transmute(select     = adjusted, 
+                 mutate_fun = periodReturn, 
+                 type       = "log", 
+                 period     = "yearly")
+}
+
+HD_log_annual <- get_annual_returns(HD)
+MCD_log_annual <- get_annual_returns(MCD)
+NKE_log_annual <- get_annual_returns(NKE)
+```
+
+```{r}
+HD_log_annual %>%
+  ggplot(aes(x = year(date), y = yearly.returns)) + 
+  geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  geom_point(size = 2, color = palette_light()[[3]]) +
+  geom_line(size = 1, color = palette_light()[[3]]) + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "HD: Visualizing Trends in Annual Returns",
+       x = "", y = "Annual Returns", color = "") +
+  theme_tq()
+```
+
+
+```{r}
+MCD_log_annual %>%
+  ggplot(aes(x = year(date), y = yearly.returns)) + 
+  geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  geom_point(size = 2, color = palette_light()[[3]]) +
+  geom_line(size = 1, color = palette_light()[[3]]) + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "MCD: Visualizing Trends in Annual Returns",
+       x = "", y = "Annual Returns", color = "") +
+  theme_tq()
+```
+
+
+```{r}
+NKE_log_annual %>%
+  ggplot(aes(x = year(date), y = yearly.returns)) + 
+  geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  geom_point(size = 2, color = palette_light()[[3]]) +
+  geom_line(size = 1, color = palette_light()[[3]]) + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "NKE: Visualizing Trends in Annual Returns",
+       x = "", y = "Annual Returns", color = "") +
+  theme_tq()
+```
+
+As you can see all the Consumer Directory Sector are currently above 0 on their annual returns.However they all have taken a dip as of recent. But looking at the monthly returns HD and NKE both do well in the monthly returns, while MCD does not do as well. So I would further look into the stocks of HD and NKE because they might be trending upwards soon.
+
+
+```{r}
+## Regression of HD
+
+HD_lr <- tq_get("HD", get = "stock.prices", from = "2010-01-01") %>% separate(date, c("Year","Month","Day")) %>%     group_by(Month) %>% mutate(Jan = ifelse(Month == "01", 1, 0)) %>% mutate(Feb = ifelse(Month == "02", 1, 0)) %>% mutate(Mar = ifelse(Month == "03", 1, 0)) %>% mutate(Apr = ifelse(Month == "04", 1, 0)) %>% mutate(May = ifelse(Month == "05", 1, 0)) %>% mutate(Jun = ifelse(Month == "06", 1, 0)) %>% mutate(Jul = ifelse(Month == "07", 1, 0)) %>% mutate(Aug = ifelse(Month == "08", 1, 0)) %>% mutate(Sep = ifelse(Month == "09", 1, 0)) %>% mutate(Oct = ifelse(Month == "10", 1, 0)) %>% mutate(Nov = ifelse(Month == "11", 1, 0)) %>% mutate(Dec = ifelse(Month == "12", 1, 0))
+HD_lr
+HD_mod4 <- lm(close ~ open + high + low + Jan + Feb + Mar + Apr + May + Jun + Jul + Aug + Sep + Nov + Dec, data=HD_lr)
+summary(HD_mod4)
+
+```
+
+* The Regression equation of HD with each Month being dummy variables so you can predict the stock price down to the Month( most of the predictors will be canceled out since they will either be 0 or 1)
+
+y = -0.05684 - 0.57775(X1) + 0.86816(X2) + 0.70835(X3) + 0.13406(X4) + 0.12019(X5) + 0.08761(X6) + 0.01413(X7) + 0.05551(X8) + 0.05337(X9) + 0.12431(X10) + 0.13491(X11) + 0.02753(X12) + 0.12090(X13) - 0.02870(X14)
+
+
+
+
+```{r}
+## Regression of NKE
+
+NKE_lr <- tq_get("NKE", get = "stock.prices", from = "2010-01-01") %>% separate(date, c("Year","Month","Day")) %>%     group_by(Month) %>% mutate(Jan = ifelse(Month == "01", 1, 0)) %>% mutate(Feb = ifelse(Month == "02", 1, 0)) %>% mutate(Mar = ifelse(Month == "03", 1, 0)) %>% mutate(Apr = ifelse(Month == "04", 1, 0)) %>% mutate(May = ifelse(Month == "05", 1, 0)) %>% mutate(Jun = ifelse(Month == "06", 1, 0)) %>% mutate(Jul = ifelse(Month == "07", 1, 0)) %>% mutate(Aug = ifelse(Month == "08", 1, 0)) %>% mutate(Sep = ifelse(Month == "09", 1, 0)) %>% mutate(Oct = ifelse(Month == "10", 1, 0)) %>% mutate(Nov = ifelse(Month == "11", 1, 0)) %>% mutate(Dec = ifelse(Month == "12", 1, 0))
+NKE_lr
+NKE_mod4 <- lm(close ~ open + high + low + Jan + Feb + Mar + Apr + May + Jun + Jul + Aug + Sep + Nov + Dec, data=NKE_lr)
+summary(NKE_mod4)
+```
+
+
+* The Regression equation of NKE with each Month being dummy variables so you can predict the stock price down to the Month( most of the predictors will be canceled out since they will either be 0 or 1)
+
+y = -0.006533 - 0.600659(X1) + 0.827007(X2) + 0.772985(X3) + 0.026551(X4) + 0.022053(X5) + 0.042651(X6) + 0.018401(X7) + 0.033583(X8) + 0.012134(X9) + 0.009150(X10) + 0.026287(X11) + 0.006314(X12) + 0.044078(X13) + 0.028969(X14)
+
+
+
+
+
+
+## Consumer Staples Sector
+```{r}
+consumer_staples <- tq_get(c("WMT","PG","KO","WBA"), get="stock.prices", from="2012-01-01")
+WMT <- tq_get("WMT", get = "stock.prices", from = "2012-01-01")
+PG <- tq_get("PG", get = "stock.prices", from = "2012-01-01")
+KO <- tq_get("KO", get = "stock.prices", from = "2012-01-01")
+WBA <- tq_get("WBA", get = "stock.prices", from = "2012-01-01")
+```
+
+```{r}
+consumer_staples %>% 
+  ggplot(aes(date,close, color=symbol)) +
+  geom_line()+
+  theme_tq() +
+  scale_color_tq()
+
+```
+
+*Standardized
+```{r}
+consumer_staples %>% 
+  group_by(symbol) %>%
+  mutate(close = 100*close/first(close)) %>%
+  ggplot(aes(date,close, color=symbol)) +
+  geom_line()+
+  theme_tq() +
+  scale_color_tq()
+```
+
+```{r}
+### Gets the Monthly returns of Consumer Directory
+cons_stap_month <- consumer_staples %>%
+  group_by(symbol) %>%
+  tq_transmute(select=adjusted,
+               mutate_fun=periodReturn,
+               period="monthly",
+               col_rename = "monthly_return") 
+
+KO_Month <- KO %>%
+  tq_transmute(select=adjusted,
+                            mutate_fun=periodReturn,
+                            period="monthly",
+                            col_rename = "monthly_return")
+
+PG_Month <- PG %>%
+  tq_transmute(select=adjusted,
+               mutate_fun=periodReturn,
+               period="monthly",
+               col_rename = "monthly_return")
+
+WBA_Month <- WBA %>%
+  tq_transmute(select=adjusted,
+               mutate_fun=periodReturn,
+               period="monthly",
+               col_rename = "monthly_return")
+
+WMT_Month <- WMT %>%
+  tq_transmute(select=adjusted,
+               mutate_fun=periodReturn,
+               period="monthly",
+               col_rename = "monthly_return")
+```
+
+```{r}
+### Time Series of the Monthly Returns
+cons_stap_month %>%
+  ggplot(aes(date, monthly_return, color=symbol)) +
+  geom_line() +
+  labs(title = "Monthly Stock Returns", y = "Returns")+
+  facet_wrap(~symbol, ncol = 2) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+```{r}
+### Bar Plot of the Monthly Returns
+cons_stap_month1 <- cons_stap_month %>% 
+  separate(date, c("Year","Month","Day"))
+cons_stap_month1$Day <- NULL
+cons_stap_month1$Year <- NULL
+
+cons_stap_month2 <- cons_stap_month1 %>%
+  group_by(symbol, Month) %>%
+  summarise_each(funs(mean))%>%
+  mutate(Gain=monthly_return>=0) 
+
+ggplot(cons_stap_month2, aes(x = Month, y = monthly_return, fill = Gain)) +
+  geom_col(position = "identity", color = "black", size=.25) + 
+  scale_fill_manual(values = c("red","green"),guide=FALSE)+
+  labs(title = "Stock Returns by Month", y = "Returns") +
+  facet_wrap(~symbol, ncol = 2) +
+  theme_tq()+
+  scale_color_tq()
+  
+```
+
+```{r}
+### Gets the Yearly returns of Consumer Directory
+cons_stap_year <- consumer_staples %>%
+  group_by(symbol) %>%
+  tq_transmute(select=adjusted,
+               mutate_fun=periodReturn,
+               period="yearly",
+               col_rename = "yearly_return") 
+```
+
+```{r}
+### Time Series of the Yearly Returns
+cons_stap_year %>%
+  ggplot(aes(date, yearly_return, color=symbol)) +
+  geom_line() +
+  labs(title = "Yearly Stock Returns",
+       x = "", y = "Returns", color = "") +
+  facet_wrap(~ symbol, ncol = 2) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+```{r}
+### Bar Plot of the Yearly Returns
+cons_stap_year %>% ggplot(aes(x = date, y = yearly_return, fill = symbol)) +
+  geom_col(stat = "identity") +
+   geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Consumer Staples Sector: Annual Returns",
+       y = "Annual Returns", x = "") + 
+  facet_wrap(~symbol, ncol = 2) +
+  theme_tq() + 
+  scale_fill_tq()
+```
+
+```{r}
+get_annual_returns <- function(stock.returns) {
+  stock.returns %>%
+    tq_transmute(select     = adjusted, 
+                 mutate_fun = periodReturn, 
+                 type       = "log", 
+                 period     = "yearly")
+}
+
+KO_log_annual <- get_annual_returns(KO)
+PG_log_annual <- get_annual_returns(PG)
+WBA_log_annual <- get_annual_returns(WBA)
+WMT_log_annual <- get_annual_returns(WMT)
+```
+
+```{r}
+KO_log_annual %>%
+  ggplot(aes(x = year(date), y = yearly.returns)) + 
+  geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  geom_point(size = 2, color = palette_light()[[3]]) +
+  geom_line(size = 1, color = palette_light()[[3]]) + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "KO: Visualizing Trends in Annual Returns",
+       x = "", y = "Annual Returns", color = "") +
+  theme_tq()
+```
+
+```{r}
+PG_log_annual %>%
+  ggplot(aes(x = year(date), y = yearly.returns)) + 
+  geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  geom_point(size = 2, color = palette_light()[[3]]) +
+  geom_line(size = 1, color = palette_light()[[3]]) + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "PG: Visualizing Trends in Annual Returns",
+       x = "", y = "Annual Returns", color = "") +
+  theme_tq()
+```
+
+```{r}
+WBA_log_annual %>%
+  ggplot(aes(x = year(date), y = yearly.returns)) + 
+  geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  geom_point(size = 2, color = palette_light()[[3]]) +
+  geom_line(size = 1, color = palette_light()[[3]]) + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "WBA: Visualizing Trends in Annual Returns",
+       x = "", y = "Annual Returns", color = "") +
+  theme_tq()
+```
+
+```{r}
+WMT_log_annual %>%
+  ggplot(aes(x = year(date), y = yearly.returns)) + 
+  geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  geom_point(size = 2, color = palette_light()[[3]]) +
+  geom_line(size = 1, color = palette_light()[[3]]) + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "WMT: Visualizing Trends in Annual Returns",
+       x = "", y = "Annual Returns", color = "") +
+  theme_tq()
+```
+
+
+Both of the stocks PG and WMT are above 0 for annual returns, while KO is dead even and WBA is in the negative. They have all seen a decline from the past year with WMT being the smallest decline and KO being the biggest. However as we are going into the month of December all look to have a negative except the stock PG that only is slightly positive. As for the Consumer Staples sector, I would probably look further into the stock of PG.
+
+
+```{r}
+## Regression of PG
+
+PG_lr <- tq_get("PG", get = "stock.prices", from = "2010-01-01") %>% separate(date, c("Year","Month","Day")) %>%     group_by(Month) %>% mutate(Jan = ifelse(Month == "01", 1, 0)) %>% mutate(Feb = ifelse(Month == "02", 1, 0)) %>% mutate(Mar = ifelse(Month == "03", 1, 0)) %>% mutate(Apr = ifelse(Month == "04", 1, 0)) %>% mutate(May = ifelse(Month == "05", 1, 0)) %>% mutate(Jun = ifelse(Month == "06", 1, 0)) %>% mutate(Jul = ifelse(Month == "07", 1, 0)) %>% mutate(Aug = ifelse(Month == "08", 1, 0)) %>% mutate(Sep = ifelse(Month == "09", 1, 0)) %>% mutate(Oct = ifelse(Month == "10", 1, 0)) %>% mutate(Nov = ifelse(Month == "11", 1, 0)) %>% mutate(Dec = ifelse(Month == "12", 1, 0))
+PG_lr
+PG_mod4 <- lm(close ~ open + high + low + Jan + Feb + Mar + Apr + May + Jun + Jul + Aug + Sep + Nov + Dec, data=PG_lr)
+summary(PG_mod4)
+```
+
+* The Regression equation of PG with each Month being dummy variables so you can predict the stock price down to the Month( most of the predictors will be canceled out since they will either be 0 or 1)
+
+y = 0.189407 - 0.294744(X1) + 0.747266(X2) + 0.544039(X3) + 0.013556(X4) + 0.007861(X5) - 0.059472(X6) + 0.003043(X7) + 0.002161(X8) - 0.012394(X9) + 0.028412(X10) + 0.034755(X11) + 0.006051(X12) - 0.008457(X13) + 0.004678(X14)
+
+## Information Technology Sector
+
+```{r message=FALSE}
+IT = tq_get(c("CRM","MSFT","V","AAPL","IBM","INTC","CSCO"), get="stock.prices", from="2010-01-01")
+```
+
+Here the data is divided into daily, monthly, yearly, and total averages to understand trends at different levels.
+
+```{r message=FALSE}
+ITMONTHLY = IT %>%
+  mutate(month = format(date, "%m"), year = format(date, "%Y")) %>%
+  group_by(symbol,year,month) %>%
+  summarise(mean = mean(close))
+
+ITYEARLY = IT %>%
+  mutate(month = format(date, "%m"), year = format(date, "%Y")) %>%
+  group_by(symbol,year) %>%
+  summarise(mean = mean(close))
+
+ITTOTAL = IT %>%
+  group_by(symbol)%>%
+  summarise(mean=mean(close))
+
+IT = IT %>%
+  mutate(month = format(date, "%m"), year = format(date, "%Y"))
+
+IT
+ITMONTHLY
+ITYEARLY
+ITTOTAL
+```
+
+Display of each stock in the sector's performance across the investigated period:
+
+```{r}
+ggplot(data=IT, aes(x=date,y=close,color=symbol))+
+  geom_line()+
+  theme_tq()+
+  scale_color_tq()
+```
+
+It appears as though IBM remains the top stock while the others are relatively similar until 2015, but then CRM, MSFT, and V surpass IBM while AAPL, CSCO, and INTC remain lower. Lastly AAPL surges toward IBM toward the middle of the pack in the end.
+
+Here is the monthly performance of each stock in the IT sector.
+
+```{r}
+ITNEW=tq_get(c("CRM","MSFT","V","AAPL","IBM","INTC","CSCO"), get="stock.prices", from="2010-01-01")
+
+ITMONTH <- ITNEW %>%
+  group_by(symbol) %>%
+  tq_transmute(select=adjusted,
+               mutate_fun=periodReturn,
+               period="monthly",
+               col_rename = "monthly_return") 
+
+ITMONTH %>%
+  ggplot(aes(date, monthly_return, color=symbol)) +
+  geom_line() +
+  labs(title = "Monthly Stock Returns")+
+  facet_wrap(~symbol, ncol = 2) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+All of the stocks appear to have a general small fluctuation around 0, with no months standing out as large spikes or drops except CRM in 2020.
+
+Here the yearly performances of the stocks in the IT sector are analyzed:
+
+```{r warning=FALSE}
+ITYEAR <- ITNEW %>%
+  group_by(symbol) %>%
+  tq_transmute(select=adjusted,
+               mutate_fun=periodReturn,
+               period="yearly",
+               col_rename = "yearly_return") 
+
+ITYEAR %>%
+  ggplot(aes(date, yearly_return, color=symbol)) +
+  geom_line() +
+  labs(title = "Yearly Stock Returns",
+       x = "", y = "Returns", color = "") +
+  facet_wrap(~ symbol, ncol = 2) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+Similarly to when they were all together, this visual further shows evidence in the drop in IBM performance across the studied span. Additionally, CRM, MSFT, and B seem to have great performances across the board for the 10 year period with AAPL having a great performance in the end of timeline.
+
+Here is the yearly performance of each stock, either negative or positive, in bar graphs:
+
+```{r}
+ITYEAR %>% ggplot(aes(x = date, y = yearly_return, fill = symbol)) +
+  geom_col(stat = "identity") +
+   geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Consumer Directory Sector: Annual Returns",
+       y = "Annual Returns", x = "") + 
+  facet_wrap(~symbol, ncol = 2) +
+  theme_tq() + 
+  scale_fill_tq()
+```
+
+The previously mentioned stocks that performed well (CRM, V,and MSFT) still show years of great highs compared to the other stocks, with AAPL having good returns toward the end of the period. CSCO, INTC, and IBM appear to have ups and downs throughout without any great years.
+
+Next, a model multiple linear regression model was fitted to the IT stock data:
+
+```{r}
+ITmod = lm(close~symbol+open+high+low+volume+month+year,IT)
+summary(ITmod)
+```
+
+The model with the slightly adjusted time variables does not offer many meaningful variables in the model. Significant variables as .05 cutoff are year 2019, year 2018, december, october, september, march, low, high, open, and IBM.
+
+Here are the fitted model line graphs compared to the actual values:
+
+```{r}
+IT = IT %>%
+  add_predictions(ITmod)
+
+ggplot(IT)+
+  geom_line(aes(x=date,y=pred,color=symbol))+
+  ggtitle("Fitted Model")
+
+ggplot(IT)+
+  geom_line(aes(x=date,y=pred,color=symbol))+
+  ggtitle("Actual Values")
+```
+
+The fitted model really seems to emulate the data, but the question is whether it would be able to go further into the past or future, where its accuracy will likely drop. This can also be backed up by the adjusted R squared having a value of .999
+
+In the end, the average difference between the predicted values of the model and the actual values were:
+
+```{r}
+IT = IT %>%
+  summarise(diff = mean(close-pred))
+IT$diff
+```
+
+This indicates that the fit is perfect for the data given, as stated before, but the model will likely not be good at predicting values outside of the data set it was created upon due to over fitting.
+
+
+## Materials Sector
+
+
+```{r message=FALSE}
+
+MAT = tq_get(c("DOW"),get="stock.prices",from="2010-01-01")
+
+```
+
+Here the data is divided into daily, monthly, yearly, and total averages to understand trends at different levels.
+
+```{r message=FALSE}
+MATMONTHLY = MAT %>%
+  mutate(month = format(date, "%m"), year = format(date, "%Y")) %>%
+  group_by(symbol,year,month) %>%
+  summarise(mean = mean(close))
+
+MATYEARLY = MAT %>%
+  mutate(month = format(date, "%m"), year = format(date, "%Y")) %>%
+  group_by(symbol,year) %>%
+  summarise(mean = mean(close))
+
+MATTOTAL = MAT %>%
+  group_by(symbol)%>%
+  summarise(mean=mean(close))
+
+MAT = MAT %>%
+  mutate(month = format(date, "%m"), year = format(date, "%Y"))
+
+MAT
+MATMONTHLY
+MATYEARLY
+MATTOTAL
+```
+
+Display of the stock in the sector's performance across the investigated period:
+
+```{r}
+ggplot(data=MAT, aes(x=date,y=close,color=symbol))+
+  geom_line()+
+  theme_tq()+
+  scale_color_tq()
+```
+
+As can be seen, there is only one stock, DOW, in this sector, and it only has data dating back to the beginning of 2019 in the data set. It appears as though the stock was doing well the first few months but then took a large hit a few months into 2020, presumably due to the recession that coincided with Coronavirus, then gradually recovered over the next few months.
+
+Here is the monthly performance of the stock in the Material sector.
+
+```{r}
+MATNEW=tq_get(c("DOW"),get="stock.prices",from="2010-01-01")
+
+MATMONTH <- MATNEW %>%
+  group_by(symbol) %>%
+  tq_transmute(select=adjusted,
+               mutate_fun=periodReturn,
+               period="monthly",
+               col_rename = "monthly_return") 
+
+MATMONTH %>%
+  ggplot(aes(date, monthly_return, color=symbol)) +
+  geom_line() +
+  labs(title = "Monthly Stock Returns")+
+  facet_wrap(~symbol, ncol = 2) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+The graph here further provides evidence for the claims made through the daily projection of the DOW stock throughout its small data set given.
+
+Here the yearly performances of the stock in the Materials sector are analyzed:
+
+```{r warning=FALSE}
+MATYEAR <- MATNEW %>%
+  group_by(symbol) %>%
+  tq_transmute(select=adjusted,
+               mutate_fun=periodReturn,
+               period="yearly",
+               col_rename = "yearly_return") 
+
+MATYEAR %>%
+  ggplot(aes(date, yearly_return, color=symbol)) +
+  geom_line() +
+  labs(title = "Yearly Stock Returns",
+       x = "", y = "Returns", color = "") +
+  facet_wrap(~ symbol, ncol = 2) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_tq() + 
+  scale_color_tq()
+```
+
+Here the graph shows that between the two years on record in the dataset, the 2019 was a marginally better year for returns than 2020 has been up to this point, but both have positive returns.    
+
+Next, a model multiple linear regression model was fitted to the IT stock data:
+
+```{r}
+MATmod = lm(close~+open+high+low+volume+month+year,MAT)
+summary(MATmod)
+```
+
+This model only has three significant variables at the 0.05 significance cut off point. Those variables are open, high, and low. This is likely due to the relative lack of data compared to other sectors.
+
+Here is the fitted model line graph compared to the actual values:
+
+```{r}
+MAT = MAT %>%
+  add_predictions(MATmod)
+
+ggplot(MAT)+
+  geom_line(aes(x=date,y=pred,color=symbol))+
+  ggtitle("Fitted Model")
+
+ggplot(MAT)+
+  geom_line(aes(x=date,y=pred,color=symbol))+
+  ggtitle("Actual Values")
+```
+
+The fit appears to be very good, but again, this is probably due to overfitting of the model. This is further backed up by the adjusted R squared having a value of .996. The model would likely fail if extrapolated to data outside of the dates given, especially due to the small amount of data the model was derived from.
+
+Now, a new model is fitted to the data with only the significant variables- open, low, and high:
+
+```{r message=FALSE}
+MATmod2 = lm(close~+open+high+low,MAT)
+summary(MATmod2)
+```
+
+The adjusted a R squared has slightly gone up for the model, and the model has a smaller amount of variables, indicating that the model is a better choice for the data, but I hypothesize that the model will still have problems predicting data that is outside the dataset.
+
+Here are the new model's line graph for the predicted versus actual values.
+
+```{r message=FALSE}
+MAT2 = tq_get(c("DOW"),get="stock.prices",from="2010-01-01")
+
+MAT2 = MAT2 %>%
+  mutate(month = format(date, "%m"), year = format(date, "%Y"))
+
+MAT2 = MAT2%>%
+  add_predictions(MATmod2)
+
+ggplot(MAT2)+
+  geom_line(aes(x=date,y=pred,color=symbol))+
+  ggtitle("Fitted Model")
+
+ggplot(MAT2)+
+  geom_line(aes(x=date,y=pred,color=symbol))+
+  ggtitle("Actual Values")
+```
+
+The graphs again look very similar and this is backed up by the large adjusted R squared value for the model.
+
+## Health Care Sector and Industrials Sector
+
+```{r warning=FALSE}
+## Health Care
+HC_data<-tq_get(c("UNH","AMGN","JNJ","MRK"), get="stock.prices", from="2010-1-1")
+HC_data
+
+
+## Industrials
+IND_data<-tq_get(c("HON","MMM","CAT","BA"), get="stock.prices", from="2010-1-1")
+
+IND_data%>%
+  ggplot(aes(date,close,color=symbol))+
+  geom_line()+
+  ggtitle("Industrial Stocks over Time")+
+  labs(x="Year",y="Value in Dollars")+
+  theme_tq()+
+  scale_color_tq()
+
+HC_data%>%
+  ggplot(aes(date,close,color=symbol))+
+  geom_line()+
+  ggtitle("Health Care Stocks over Time")+
+  labs(x="Year",y="Value in Dollars")+
+  theme_tq()+
+  scale_color_tq()
+```
+
+Each of the graphs above represents the closing value of the companies in the DOW grouped by sector since 01-01-2010. As we can see, the general trend for each stock, regardless of sector, is a gradual increase in value over time. While some companies tend to out perform their sector mates significantly, such as BA in Industrials or UNH in Health care, the sectors tend to follow roughly similar shapes. An interesting note in each graph is the noticable dip caused by Covid-19 leaving the Industrial sector at almost the same values whereas Health care is further apart than ever.
+
+```{r message=FALSE}
+IND_month <- IND_data %>%
+ group_by(symbol) %>%
+ tq_transmute(select=adjusted,
+ mutate_fun=periodReturn,
+ period="monthly",
+ col_rename = "monthly_return")
+
+IND_month %>%
+ ggplot(aes(date, monthly_return, color=symbol)) +
+ geom_line() +
+  geom_smooth(method="lm",se=FALSE,color="yellow")+
+ labs(title = "Industrials Monthly Stock Returns")+
+ facet_wrap(~symbol, ncol = 2) +
+ scale_y_continuous(labels = scales::percent) +
+ theme_tq() +
+ scale_color_tq()
+
+HC_month <- HC_data %>%
+ group_by(symbol) %>%
+ tq_transmute(select=adjusted,
+ mutate_fun=periodReturn,
+ period="monthly",
+ col_rename = "monthly_return")
+
+HC_month %>%
+ ggplot(aes(date, monthly_return, color=symbol)) +
+ geom_line() +
+  geom_smooth(method="lm",se=FALSE,color="yellow")+
+ labs(title = "Health Care Monthly Stock Returns")+
+ facet_wrap(~symbol, ncol = 2) +
+ scale_y_continuous(labels = scales::percent) +
+ theme_tq() +
+ scale_color_tq()
+```
+
+Upon analyzing monthly returns between these two sectors we can take away a few things. The first being that the vast majority of month returns fall within a +/- 10% range. This is especially true in the Health care sector and the only major outlier to this trend is the recent monthly returns for BA in the Industrials sector seeing over a 25% loss followed by over a 25% gain. The second thing we can take away from pur monthly returns graphs is a trend regarding the yellow regression line on each plot. In general, across both sectors, we see the predicted monthly returns above 0% which corresponds with our previous set of graphs which exhibit a gradual increase in value over time. Intuitively, we can assume that any company whose predicted monthly return was in the negatives would be on a fast track to bankruptcy or buyout.
+
+```{r message=FALSE}
+IND_annual <- IND_data %>%
+ group_by(symbol) %>%
+ tq_transmute(select=adjusted,
+ mutate_fun=periodReturn,
+ period="yearly",
+ col_rename = "yearly_return")
+
+IND_annual %>%
+ ggplot(aes(date, yearly_return, color=symbol)) +
+ geom_line() +
+  geom_smooth(method="lm",se=FALSE,color="yellow")+
+ labs(title = "Industrials Yearly Stock Returns",
+ x = "", y = "Returns", color = "") +
+ facet_wrap(~ symbol, ncol = 2) +
+ scale_y_continuous(labels = scales::percent) +
+ theme_tq() +
+ scale_color_tq()
+
+HC_annual <- HC_data %>%
+ group_by(symbol) %>%
+ tq_transmute(select=adjusted,
+ mutate_fun=periodReturn,
+ period="yearly",
+ col_rename = "yearly_return")
+
+HC_annual %>%
+ ggplot(aes(date, yearly_return, color=symbol)) +
+ geom_line() +
+  geom_smooth(method="lm",se=FALSE,color="yellow")+
+ labs(title = "Health Care Yearly Stock Returns",
+ x = "", y = "Returns", color = "") +
+ facet_wrap(~ symbol, ncol = 2) +
+ scale_y_continuous(labels = scales::percent) +
+ theme_tq() +
+ scale_color_tq()
+```
+
+Similar to the monthly return graphs for these two sectors we see each company with a predicted annual return over 0%. However rather than the flattened prediction line we see for the monthly returns almost all the annual returns, with one exception, are trending downwards. Another interesting trend between sectors and companies is a common decrease in annual returns for the year 2019. While the downward trend in 2020 can be attributed to Covid-19 it seems that many companies were already expecting lower returns in previous years. Despite many of the regression lines trending downwards only one of the companies across sectors is nearing 0% annual return.
+
+## Additional Analysis
+
+### Trends for Companies in the DOW Index
+An interesting observation about our data is that very few of the trend terms in our various regressions for the different stocks were significant.
+
+```{r message=FALSE}
+get_model<-function(stock_data) {
+  annual_returns <- get_annual_log_returns(stock_data)
+  mod <- lm(yearly.returns ~ year(date), data = annual_returns)
+  tidy(mod)
+}
+
+DOW_tbl<-tq_index("DOW")
+DOW_model_stats <- DOW_tbl %>%
+  select(symbol, company) %>%
+  tq_get(from = "2010-01-01", to = "2020-10-31") %>%
+  group_by(symbol, company) %>%
+  nest() %>%
+  mutate(model = map(data, get_model)) %>%
+  unnest(model) %>%
+  filter(term == "year(date)") %>%
+  arrange(p.value) %>%
+  select(-term)
+DOW_model_stats
+```
+
+It appears that we have no significant p-values at the 0.01 level, and only Microsoft is significant at the 0.05 level of significance. This tells us that is difficult to predict future stock market movement based on the past. Perhaps there are some other outside factors we can look at to try and predict future movement. 
+
+### Using Gold Prices, Federal Interest Rates, and Value of the US Dollar as Predictors
+
+Some outside factors that are thought to have an impact on the stock market are gold prices, Federal interest rates, and the value of the US Dollar. We will analyze the monthly data for each against the monthly returns of the DOW Index as a whole. We begin by tidying our data. 
+
+```{r warning=FALSE}
+library(neverhpfilter)
+library(timetk)
+data("FEDFUNDS")
+FedFunds<-tk_tbl(
+  FEDFUNDS,
+  preserve_index = TRUE,
+  rename_index = "index",
+  timetk_idx = FALSE,
+  silent = FALSE,
+)
+FedFunds1<-FedFunds %>%
+  mutate(index=as.Date(index, format = "%m.%Y"))%>%
+  separate(index, c("Year", "Month", "Day"))%>%
+  unite(date, c("Year", "Month"), sep = "-")%>%
+  select(-2)
+```
+```{r}
+GOLDDOLLAR<-read.csv("/Users/mdkdj/Documents/Pitt/monthly_csv.csv",stringsAsFactors=FALSE)
+GOLDDOLLAR<-as_tibble(GOLDDOLLAR)
+DJI_Monthly<-DJI_monthly_returns %>%
+  separate(date, c("Year", "Month", "Day"))%>%
+  unite(date, c("Year", "Month"), sep = "-")%>%
+  select(-3)
+DJI<-DJI_Monthly%>%
+  inner_join(GOLDDOLLAR,by="date")
+DJI0<-DJI%>%
+  inner_join(FedFunds1, by="date")
+DJI0
+```
+
+Now that we have our data, we can create scatterplots to visualize the relationship between monthly returns and our various predictors. 
+
+```{r message=FALSE}
+ggplot(DJI0, aes(x=monthly_return, y=GoldPrice)) + 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_tq()+
+  scale_color_tq()+
+  labs(title = "Price of Gold vs DOW Monthly Returns")
+```
+
+```{r message=FALSE}
+ggplot(DJI0, aes(x=monthly_return, y=USDollar)) + 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_tq()+
+  scale_color_tq()+
+  labs(title = "Value of US Dollar vs DOW Monthly Returns")
+```
+
+```{r message=FALSE}
+ggplot(DJI0, aes(x=monthly_return, y=FEDFUNDS)) + 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_tq()+
+  scale_color_tq()+
+  labs(title = "Federal Interest Rates vs DOW Monthly Returns")
+```
+
+All three of these scatterplots appear to show very little correlation, or almost none at all. We can still attempt to fit a regression model to the data using Gold Prices, Federal Interest Rates, and US Dollar value as predictors.
+
+```{r}
+DOWmod<-lm(monthly_return~GoldPrice+USDollar+FEDFUNDS, data=DJI0)
+summary(DOWmod)
+```
+
+This verifies our previous findings that Gold Prices, US Dollar value, and Federal interest rates are not good predictors for DOW monthly returns. Not one of our coefficients is significant in predicting monthly returns.   
+
+Although these were not significant in predicting monthly returns, perhaps they are significant in describing monthly closing prices. 
+
+```{r message=FALSE}
+DJI_prices<-DJI_data %>%
+  group_by(symbol)%>%
+  tq_transmute(select = close, mutate_fun = to.monthly,indexAt="lastof")%>%
+  separate(date, c("Year", "Month", "Day"))%>%
+  unite(date, c("Year", "Month"), sep = "-")%>%
+  select(-3)
+DJI2<-DJI_prices%>%
+  inner_join(GOLDDOLLAR,by="date")
+DJI3<-DJI2%>%
+  inner_join(FedFunds1, by="date")
+DJI3
+```
+
+```{r message=FALSE}
+ggplot(DJI3, aes(x=close, y=GoldPrice)) + 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_tq()+
+  scale_color_tq()+
+  labs(title = "Price of Gold vs DOW Monthly Closing Price")
+ggplot(DJI3, aes(x=close, y=USDollar)) + 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_tq()+
+  scale_color_tq()+
+  labs(title = "Value of US Dollar vs DOW Monthly Closing Price")
+ggplot(DJI3, aes(x=close, y=FEDFUNDS)) + 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_tq()+
+  scale_color_tq()+
+  labs(title = "Federal Interest Rates vs DOW Monthly Closing Price")
+```
+
+There appears to be relationships here between closing price and our three variables. It appears that Federal Interest Rates and closing price are very closely correlated, and Dollar Value and closing price to a lesser degree. Gold price appears to be more correlated than before, but not linearly. We can try to fit a model to our data. 
+
+```{r}
+DOWmod1<-lm(close~GoldPrice+USDollar+FEDFUNDS, data=DJI3)
+summary(DOWmod1)
+```
+
+We see that while Federal Interest Rates and Dollar Value are significant, Gold Price is not. We can try squaring the Gold Prices term to see if that is an improvement.
+
+```{r}
+DOWmod2<-lm(close~poly(GoldPrice, 2)+USDollar+FEDFUNDS, data=DJI3)
+summary(DOWmod2)
+```
+
+Now all three of our predictors are significant, and this model has a higher adjusted r-squared, indicating that it is the better model. So while it appears that Price of Gold, Value of the US Dollar, and Federal Interest rates are not significant in describing returns, they can be used to describe closing price. 
+
+## Interpretation of Results
+
+The biggest takeaway from our results is that future stock market performance is incredibly difficult to predict. There are many more outside influences that have some impact on the stock market beyond just the three mentioned. Factors such as which US President is in office, natural disasters, or, as we are currently seeing, a global pandemic can all have an impact on stock market performance. There are many more advanced models than the ones in this project that would be needed to attempt to model return data. More advanced models such as certain time series models or some nonparametric models may be better suited to measure return data.    
+
+Ultimately, stock market returns are very difficult to predict, and there are no perfect models that will capture their behavior. Perhaps famed businessman Norman R. Augustine summed it up best when he said "If stock market experts were so expert, they would be buying stock, not selling advice."
+
+## Appendix
+
+### Contribution by Group Member
+* Jake Deemer
+    + DOW Index 
+    + Communication Services Sector
+    + Energy Sector
+    + Financials Sector
+    + Additional Analysis
+    + Interpretation of Results
+* Nick Calvaresi
+    + Consumer Directory Sector
+    + Consumer Staples Sector
+* Liam Flood
+    + Information Technology Sector
+    + Materials Sector
+* Jake Matthews
+    + Health Care Sector
+    + Industrials Sector
+
+### Datasets for Part 1
+* Jake Deemer- bad_drivers
+* Nick Calvaresi- candy_rankings
+* Liam Flood- classic_rock_song_list
+* Jake Matthews- drug_use
